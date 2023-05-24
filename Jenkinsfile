@@ -47,7 +47,7 @@ spec:
               /kaniko/executor \
                 --git branch=master \
                 --context=. \
-                --destination=${DOCKER_REGISTRY}/eshop-frontend:latest
+                --destination=${DOCKER_REGISTRY}/eshop-frontend:canarytestv2
             """
           }
         }
