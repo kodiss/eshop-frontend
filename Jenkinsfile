@@ -1,3 +1,12 @@
+/*
+<< 변수 >> 치환 필요
+
+<< ECR URI >>      => ex) 123456789012.dkr.ecr.us-east-1.amazonaws.com
+<< SERVICE NAME >> => ex) eshop-backend
+<< TAG >>          => ex) latest
+
+<< ECR URI >>/<< SERVICE NAME >>:<< TAG >> => ex) 123456789012.dkr.ecr.us-east-1.amazonaws.com/eshop-backend:latest
+*/
 pipeline {
   agent {
     kubernetes {
@@ -6,7 +15,7 @@ kind: Pod
 spec:
   containers:
   - name: kaniko
-    image: gcr.io/kaniko-project/executor:v1.6.0-debug
+    image: gcr.io/kaniko-project/executor:debug
     imagePullPolicy: Always
     command:
     - /busybox/cat
@@ -14,11 +23,8 @@ spec:
 """
     }
   }
-  environment {
-    SCP_CREDS = credentials('scpCredentials')
-    DOCKER_REGISTRY = "eshopregistry-dklbuzel.scr.kr-west.scp-in.com"
-  }
   stages {
+    
     stage('Approval') {
       when {
         branch 'main'
@@ -31,24 +37,29 @@ spec:
         }
       } 
     }
+        
     stage('Build with Kaniko') {
       when {
         branch 'main'
       }
       steps {
-        container('kaniko') {
-          script{
-            def dockerAuth = sh(returnStdout: true, script: "echo -n \"${SCP_CREDS_USR}:${SCP_CREDS_PSW}\" | base64").trim().replaceAll(/\n/, '')            
-            sh """
-              rm -rf /kaniko/.docker
-              mkdir /kaniko/.docker
-              echo '{\"auths\":{\"${DOCKER_REGISTRY}\":{\"auth\":\"$dockerAuth\"}}}' > /kaniko/.docker/config.json
-              cat /kaniko/.docker/config.json
-              /kaniko/executor \
-                --git branch=master \
-                --context=. \
-                --destination=${DOCKER_REGISTRY}/eshop-frontend:latest
-            """
+        container(name: 'kaniko', shell: '/busybox/sh') {
+          
+          withCredentials([
+          usernamePassword
+            (credentialsId: 'github', 
+             usernameVariable: 'USERNAME', 
+             passwordVariable: 'GIT_TOKEN'
+            )
+          ])
+
+          {
+            sh '''#!/busybox/sh
+            /kaniko/executor \\
+            --git branch=main \\
+            --context=git://$USERNAME:$GIT_TOKEN@github.com/$USERNAME/eshop-frontend.git \\
+            --destination=100462131013.dkr.ecr.us-east-1.amazonaws.com/eshop-frontend:latest
+            '''
           }
         }
       }
